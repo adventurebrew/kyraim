@@ -64,7 +64,7 @@ class PakFile:
         return self
 
     @contextmanager
-    def open(self, fname, mode='r') -> Iterator[IO]:
+    def open(self, fname: str, mode: str = 'r') -> Iterator[IO]:
         if not fname in self.index:
             raise ValueError(f'no member {fname} in pakfile')
 
@@ -85,7 +85,7 @@ class PakFile:
             for fname, (start, size) in self.index.items():
                 yield fname, read_file(f, start, size)
 
-    def extractall(self, dirname) -> None:
+    def extractall(self, dirname: str) -> None:
         create_directory(dirname)
         for fname, filedata in self:
             with builtins.open(os.path.join(dirname, fname), 'wb') as out_file:
