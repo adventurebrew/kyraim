@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import builtins
+import io
 import sys
 import os
 import glob
@@ -10,23 +11,23 @@ from collections import OrderedDict
 from itertools import takewhile
 from functools import partial
 
-from typing import Any, AnyStr, Callable, IO, Iterator, List, Mapping, Tuple, Union
+from typing import cast, Any, AnyStr, Callable, ContextManager, IO, Iterator, List, Mapping, Tuple, Union
 
 # from struct import Struct
 # uint32_le = Struct('<I')
 # def read_uint32_le(f): 
 #     return uint32_le.unpack(f.read(uint32_le.size))[0]
 
-def read_uint32_le(stream: IO[bytes]): 
+def read_uint32_le(stream: IO[bytes]) -> int: 
     return int.from_bytes(stream.read(4), byteorder='little', signed=False)
 
 def flatten(ls: Iterator[Iterator[Any]]) -> Iterator[Any]: 
     return (item for sublist in ls for item in sublist)
 
-def readcstr(stream: IO[bytes]):
+def readcstr(stream: IO[bytes]) -> str:
     return ''.join(iter(lambda: stream.read(1).decode(), '\00'))
 
-def create_directory(name: AnyStr):
+def create_directory(name: AnyStr) -> None:
     os.makedirs(name, exist_ok=True)
 
 def read_index_entry(stream: IO[bytes]) -> Tuple[str, int]:
@@ -35,39 +36,43 @@ def read_index_entry(stream: IO[bytes]) -> Tuple[str, int]:
 def before_offset(stream: IO[bytes], off: int, *args: Any) -> bool:
     return stream.tell() < off
 
-def read_index(stream: IO[bytes]):
+def read_index(stream: IO[bytes]) -> Tuple[Tuple[str, ...], Tuple[int, ...]]:
     off = read_uint32_le(stream)
-    index_entries = iter(partial(read_index_entry, stream), ('', 0)) # type: Iterator[Tuple[str, int]]
+    index_entries = iter(partial(read_index_entry, stream), ('', 0))
     index_entries = takewhile(partial(before_offset, stream, off), index_entries)
     names, offs = zip(*index_entries)
-    return names, [off] + list(offs)
+    return names, (off,) + tuple(offs)
 
 def read_file(stream: IO[bytes], off: int, size: int) -> bytes:
-    stream.seek(off) # need unit test to check offset is always equal to f.tell()
+    stream.seek(off, io.SEEK_SET) # need unit test to check offset is always equal to f.tell()
     return stream.read(size)
 
 class PakFile:
+    _stream: IO[bytes]
+
+    filename: Union[str, bytes] 
+    index: Mapping[str, Tuple[int, int]]
+
     def __init__(self, filename: AnyStr) -> None:
-        self.filename: Union[str, bytes] = filename
-        self._stream: IO[bytes] = builtins.open(self.filename, 'rb')
+        self.filename = filename
+        self._stream = builtins.open(self.filename, 'rb')
         names, offsets = read_index(self._stream)
-        sizes: List[int] = [end - start for start, end in zip(offsets, offsets[1:])]
-        self.index = OrderedDict(zip(names, zip(offsets, sizes))) # type: Mapping[str, Tuple[int, int]]
+        sizes = [(end - start) for start, end in zip(offsets, offsets[1:])]
+        self.index = OrderedDict(zip(names, zip(offsets, sizes)))
 
     def __enter__(self):
         return self
 
     @contextmanager
-    def open(self, fname, mode='r'):
-        import io
+    def open(self, fname, mode='r') -> Iterator[IO]:
         if not fname in self.index:
-            raise ValueError()
+            raise ValueError(f'no member {fname} in pakfile')
 
         start, size = self.index[fname]
         with builtins.open(self.filename, 'rb') as f:
-            f.seek(start)
+            f.seek(start, io.SEEK_SET)
             data = f.read(size)
-        with io.BytesIO(data) as stream:
+        with io.BytesIO(data) as stream:  # type: IO
             if not 'b' in mode:
                 stream = io.TextIOWrapper(stream, encoding='utf-8')
             yield stream
@@ -87,7 +92,7 @@ class PakFile:
                 out_file.write(filedata)
 
 @contextmanager
-def open(*args, **kwargs):
+def open(*args: Any, **kwargs: Any) -> Iterator[PakFile]:
     yield PakFile(*args, **kwargs)
 
 if __name__ == "__main__":
