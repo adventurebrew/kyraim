@@ -11,7 +11,9 @@ from collections import OrderedDict
 from itertools import takewhile
 from functools import partial
 
-from typing import cast, Any, AnyStr, Callable, ContextManager, IO, Iterator, List, Mapping, Tuple, Union
+from typing import cast, Any, AnyStr, Callable, ContextManager, IO, Iterator, List, Mapping, Sequence, Tuple, Union
+
+PakIndex = Mapping[str, Tuple[int, int]]
 
 # from struct import Struct
 # uint32_le = Struct('<I')
@@ -36,7 +38,7 @@ def read_index_entry(stream: IO[bytes]) -> Tuple[str, int]:
 def before_offset(stream: IO[bytes], off: int, *args: Any) -> bool:
     return stream.tell() < off
 
-def read_index(stream: IO[bytes]) -> Tuple[Tuple[str, ...], Tuple[int, ...]]:
+def read_index(stream: IO[bytes]) -> Tuple[Sequence[str], Sequence[int]]:
     off = read_uint32_le(stream)
     index_entries = iter(partial(read_index_entry, stream), ('', 0))
     index_entries = takewhile(partial(before_offset, stream, off), index_entries)
@@ -47,18 +49,20 @@ def read_file(stream: IO[bytes], off: int, size: int) -> bytes:
     stream.seek(off, io.SEEK_SET) # need unit test to check offset is always equal to f.tell()
     return stream.read(size)
 
+def parse_index_mapping(names: Sequence[str], offsets: Sequence[int]) -> PakIndex:
+    sizes = [(end - start) for start, end in zip(offsets, offsets[1:])]
+    return OrderedDict(zip(names, zip(offsets, sizes)))
+
 class PakFile:
     _stream: IO[bytes]
 
     filename: Union[str, bytes] 
-    index: Mapping[str, Tuple[int, int]]
+    index: PakIndex
 
     def __init__(self, filename: AnyStr) -> None:
         self.filename = filename
         self._stream = builtins.open(self.filename, 'rb')
-        names, offsets = read_index(self._stream)
-        sizes = [(end - start) for start, end in zip(offsets, offsets[1:])]
-        self.index = OrderedDict(zip(names, zip(offsets, sizes)))
+        self.index = parse_index_mapping(*read_index(self._stream))
 
     def __enter__(self):
         return self
@@ -70,9 +74,10 @@ class PakFile:
 
         start, size = self.index[fname]
         with builtins.open(self.filename, 'rb') as f:
-            f.seek(start, io.SEEK_SET)
-            data = f.read(size)
-        with io.BytesIO(data) as stream:  # type: IO
+            data = read_file(f, start, size)
+
+        stream: IO
+        with io.BytesIO(data) as stream:
             if not 'b' in mode:
                 stream = io.TextIOWrapper(stream, encoding='utf-8')
             yield stream
