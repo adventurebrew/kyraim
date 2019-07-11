@@ -38,7 +38,7 @@ def read_index_entry(stream: IO[bytes]) -> Tuple[str, int]:
 def before_offset(stream: IO[bytes], off: int, *args: Any) -> bool:
     return stream.tell() < off
 
-def read_index(stream: IO[bytes]) -> Tuple[Sequence[str], Sequence[int]]:
+def read_index_entries(stream: IO[bytes]) -> Tuple[Sequence[str], Sequence[int]]:
     off = read_uint32_le(stream)
     index_entries = iter(partial(read_index_entry, stream), ('', 0))
     index_entries = takewhile(partial(before_offset, stream, off), index_entries)
@@ -49,7 +49,7 @@ def read_file(stream: IO[bytes], off: int, size: int) -> bytes:
     stream.seek(off, io.SEEK_SET) # need unit test to check offset is always equal to f.tell()
     return stream.read(size)
 
-def parse_index_mapping(names: Sequence[str], offsets: Sequence[int]) -> PakIndex:
+def create_index_mapping(names: Sequence[str], offsets: Sequence[int]) -> PakIndex:
     sizes = [(end - start) for start, end in zip(offsets, offsets[1:])]
     return OrderedDict(zip(names, zip(offsets, sizes)))
 
@@ -62,7 +62,7 @@ class PakFile:
     def __init__(self, filename: AnyStr) -> None:
         self.filename = filename
         self._stream = builtins.open(self.filename, 'rb')
-        self.index = parse_index_mapping(*read_index(self._stream))
+        self.index = create_index_mapping(*read_index_entries(self._stream))
 
     def __enter__(self):
         return self
