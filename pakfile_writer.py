@@ -6,7 +6,13 @@ from itertools import chain
 
 import pakfile
 
-from typing import  Iterator, Iterable, Sequence, Tuple
+from typing import  Iterator, Iterable, Sequence, Tuple, TypeVar
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+PairIterator = Iterator[Tuple[T, U]]
+PairIterable = Iterable[Tuple[T, U]]
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -19,7 +25,7 @@ def calculate_index_length(pak_index: Sequence[str]) -> int:
 def write_index_entry(fname: str, offset: int) -> bytes:
     return write_uint32_le(offset) + fname.encode() + b'\00'
 
-def generate_index(data_files: Iterator[Tuple[str, bytes]]) -> Iterator[Tuple[bytes, bytes]]:
+def generate_index(data_files: PairIterator[str, bytes]) -> PairIterator[bytes, bytes]:
     end = ('\00\00\00\00', b'')
     pak_index, rdata = zip(*chain(data_files, (end,)))
     off = calculate_index_length(pak_index)
@@ -27,7 +33,7 @@ def generate_index(data_files: Iterator[Tuple[str, bytes]]) -> Iterator[Tuple[by
         yield write_index_entry(fname, off), fdata
         off += len(fdata)
 
-def read_file_fallback(pak: Iterable[Tuple[str, bytes]], pakname: str) -> Iterator[Tuple[str, bytes]]:
+def read_file_fallback(pak: PairIterable[str, bytes], pakname: str) -> PairIterator[str, bytes]:
     for fname, data in pak:
         fpath = f'{pakname}/{fname}'
         if os.path.exists(fpath):
