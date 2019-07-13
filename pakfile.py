@@ -11,9 +11,10 @@ from collections import OrderedDict
 from itertools import takewhile
 from functools import partial
 
-from typing import cast, Any, AnyStr, Callable, ContextManager, IO, Iterator, List, Mapping, Sequence, Tuple, Union
+from typing import Any, AnyStr, Callable, ContextManager, IO, Iterator, Iterable, List, Mapping, Sequence, Tuple, TypeVar, Union
 
 PakIndex = Mapping[str, Tuple[int, int]]
+T = TypeVar('T')
 
 # from struct import Struct
 # uint32_le = Struct('<I')
@@ -23,7 +24,7 @@ PakIndex = Mapping[str, Tuple[int, int]]
 def read_uint32_le(stream: IO[bytes]) -> int: 
     return int.from_bytes(stream.read(4), byteorder='little', signed=False)
 
-def flatten(ls: Iterator[Iterator[Any]]) -> Iterator[Any]: 
+def flatten(ls: Iterable[Iterable[T]]) -> Iterator[T]: 
     return (item for sublist in ls for item in sublist)
 
 def readcstr(stream: IO[bytes]) -> str:
@@ -49,7 +50,7 @@ def read_file(stream: IO[bytes], off: int, size: int) -> bytes:
     stream.seek(off, io.SEEK_SET) # need unit test to check offset is always equal to f.tell()
     return stream.read(size)
 
-def create_index_mapping(names: Sequence[str], offsets: Sequence[int]) -> PakIndex:
+def create_index_mapping(names: Iterable[str], offsets: Sequence[int]) -> PakIndex:
     sizes = [(end - start) for start, end in zip(offsets, offsets[1:])]
     return OrderedDict(zip(names, zip(offsets, sizes)))
 
@@ -102,7 +103,7 @@ def open(*args: Any, **kwargs: Any) -> Iterator[PakFile]:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: vrm.py PATH_TO_KYRANDIA")
+        print("Usage: pakfile.py PATH_TO_KYRANDIA")
         exit(1)
 
     # TODO: use argparse
