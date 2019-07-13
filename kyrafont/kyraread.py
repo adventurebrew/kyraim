@@ -2,6 +2,8 @@ from image_reader import read_image_grid, resize_frame, count_in_row
 import numpy as np
 import struct
 
+from typing import List
+
 def convert_char(width, frame):
     res = b''
     for line in frame:
@@ -15,7 +17,7 @@ def convert_char(width, frame):
 
 
 def get_heights(frame):
-    line_is_sep = lambda line: line[0] != 255 #all(c == 255 for c in line)
+    line_is_sep = lambda line: line[0] != 255  # all(c == 255 for c in line)
     h1 = count_in_row(line_is_sep, frame)
     h2 = count_in_row(line_is_sep, frame[h1 + 1:])
     return (h1, h2), frame[h1 + 1: h1 + h2 + 1]
@@ -26,8 +28,8 @@ frames = [ f for f in frames if f != None]
 frames = [(l, get_heights(f)) for l, f in frames]
 
 numGlyphs = len(frames)
-heights = []
-widths = []
+heights: List[int] = []
+widths: List[int] = []
 bitmaps = b''
 bitmapOffsetsStart = 20
 widthTableStart = bitmapOffsetsStart + numGlyphs * 2
@@ -39,8 +41,7 @@ for (w, ((h1, h2), data)) in frames:
     bitmap = convert_char(w, data)
     bOffsets.append(bOffsets[-1] + len(bitmap))
     bitmaps += bitmap
-    heights.append(h1)
-    heights.append(h2)
+    heights += [h1, h2]
     widths.append(w)
 
 heightTableStart = bitmapsStart + len(bitmaps)
