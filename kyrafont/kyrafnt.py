@@ -37,7 +37,7 @@ _colorMap = list(range(16)) # [x for x in data[unknow2:unknow2+16]]
 def flatten(ls): 
     return (item for sublist in ls for item in sublist)
 
-def draw_line(bbs):
+def decode_line(bbs):
     return list(flatten((_colorMap[b % 16], _colorMap[int(b / 16)]) for b in bbs))
 
 def convert_char(c):
@@ -56,7 +56,7 @@ def convert_char(c):
     read_size = (1 + charWidth) // 2
     src = data[off:off + read_size * charH2]
     chunked = zip(*([iter(src)] * read_size))
-    pic += [draw_line(chunk)[:charWidth] for chunk in chunked]
+    pic += [decode_line(chunk)[:charWidth] for chunk in chunked]
 
     # for _ in range(charH2):
     #     read_size = (1 + charWidth) // 2

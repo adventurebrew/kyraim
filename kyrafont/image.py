@@ -24,19 +24,20 @@ def save_image_grid(filename, frames):
     w = 24
     h = 24
 
+    grid_size = 16
+
     im_frames = [convert_to_pil_image(frame) for frame in frames]
     
-    get_bg = get_bg_color(16, lambda idx: idx + int(idx / 16))
+    get_bg = get_bg_color(grid_size, lambda idx: idx + int(idx / grid_size))
 
     stack = [resize_pil_image(w, h, get_bg(idx), frame) for idx, frame in enumerate(im_frames)]
 
-    enpp = np.array([[0] * w * 16] * h * 16, dtype=np.uint8)
-    bim = Image.fromarray(enpp, mode='L')
-
-    bim.putpalette([(133 * x % 256) for x in range(256)]*3)
+    enpp = np.array([[0] * w * grid_size] * h * grid_size, dtype=np.uint8)
+    bim = Image.fromarray(enpp, mode='P')
 
     for idx, frame in enumerate(stack):
-        bim.paste(frame, box=((idx % 16) * w, int(idx / 16) * h))
+        bim.paste(frame, box=((idx % grid_size) * w, int(idx / grid_size) * h))
 
+    bim.putpalette([(133 * x % 256) for x in range(256)]*3)
     bim.save(filename)
     # print(list(np.asarray(bim)))
