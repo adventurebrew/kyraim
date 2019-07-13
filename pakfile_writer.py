@@ -16,7 +16,7 @@ def write_uint32_le(number: int) -> bytes:
 def calculate_index_length(pak_index: Sequence[str]) -> int:
     return sum(len(write_index_entry(fname, 0)) for fname in pak_index)
 
-def write_index_entry(fname, offset) -> bytes:
+def write_index_entry(fname: str, offset: int) -> bytes:
     return write_uint32_le(offset) + fname.encode() + b'\00'
 
 def generate_index(data_files: Iterator[Tuple[str, bytes]]) -> Iterator[Tuple[bytes, bytes]]:
