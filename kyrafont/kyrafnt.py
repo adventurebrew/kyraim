@@ -2,12 +2,22 @@
 
 import struct
 from image import save_image_grid
-from math import ceil
+import math
 import sys
+
+
+def read_le_uint16(f):
+    return struct.unpack('<H', f[:2])[0]
+
+def sublist(ls, start, size):
+    return ls[start:start+size]
+
+def grouper(it, chunk_size):
+    return zip(*([iter(it)] * chunk_size))
 
 filename = sys.argv[1]
 if len(sys.argv) < 2:
-    exit()
+    exit(1)
 
 with open(filename, 'rb') as fntFile:
     data = fntFile.read()
@@ -27,44 +37,31 @@ print((width, height, numGlyphs))
 
 bitmapOffsetsStart, _widthTableStart, unknown2, _heightTableStart = struct.unpack('<4H', data[6:14])
 print((bitmapOffsetsStart, _widthTableStart, unknown2, _heightTableStart))
-bitmapOffsets = data[bitmapOffsetsStart:]
-bitmapOffsets = [struct.unpack('<H', bitmapOffsets[2*i:2*i + 2])[0] for i in range(numGlyphs)]
-widths = [x for x in data[_widthTableStart:_widthTableStart + numGlyphs]]
-heights = [x for x in data[_heightTableStart:_heightTableStart + 2 * numGlyphs]]
-heights = list(zip(*[iter(heights)]*2))
+bitmapOffsets = [read_le_uint16(bytes(t)) for t in grouper(sublist(data, bitmapOffsetsStart, 2 * numGlyphs), 2)]
+widths = sublist(data, _widthTableStart, numGlyphs)
+heights = list(grouper(sublist(data, _heightTableStart, 2 * numGlyphs), 2))
+
 _colorMap = list(range(16)) # [x for x in data[unknow2:unknow2+16]]
 
 def flatten(ls): 
     return (item for sublist in ls for item in sublist)
 
 def decode_line(bbs):
-    return list(flatten((_colorMap[b % 16], _colorMap[int(b / 16)]) for b in bbs))
+    return list(flatten((_colorMap[b % 16], _colorMap[b // 16]) for b in bbs))
 
 def convert_char(c):
     charWidth = widths[c]
-    
+
     charH1, charH2 = heights[c]
-    charH0 = height - (charH1 + charH2)
+    charH0 = height - sum(heights[c])
 
-    off = bitmapOffsets[c]
-
-    soff = 0
     pic = [[_colorMap[0]] * charWidth] * charH1
 
     pic.append([255] * charWidth)
 
-    read_size = (1 + charWidth) // 2
-    src = data[off:off + read_size * charH2]
-    chunked = zip(*([iter(src)] * read_size))
+    read_size = math.ceil(charWidth / 2)
+    chunked = grouper(sublist(data, bitmapOffsets[c], read_size * charH2), read_size)
     pic += [decode_line(chunk)[:charWidth] for chunk in chunked]
-
-    # for _ in range(charH2):
-    #     read_size = (1 + charWidth) // 2
-    #     bbs = src[soff:soff+read_size]
-    #     cols = [[_colorMap[b % 16], _colorMap[int(b / 16)]] for b in bbs]
-    #     pp = list(flatten(cols))[:charWidth]
-    #     soff += read_size
-    #     pic.append(pp)
 
     pic.append([255] * charWidth)
 
@@ -72,12 +69,11 @@ def convert_char(c):
     return pic
 
 chars = (convert_char(c) for c in range(numGlyphs))
-pallete = range(3*255)
-pallete = (x % 256 for x in pallete)
-pallete = list(zip(*[iter(pallete)]*3))
 
 locs = [{'x1': 0, 'y1': 0, 'x2': widths[c], 'y2': sum(heights[c])} for c in range(numGlyphs)]
-save_image_grid('chars.png', chars)
+
+palette = [(133 * x % 256) for x in range(256)]*3
+save_image_grid('chars.png', chars, palette)
 
 # for t, m in heights:
 #     print((t, m , height - t - m))

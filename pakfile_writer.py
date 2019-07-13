@@ -2,6 +2,7 @@ import io
 import logging
 
 from contextlib import contextmanager
+from itertools import chain
 
 import pakfile
 
@@ -19,20 +20,28 @@ def calculate_index_length(pak_index: Sequence[str]) -> int:
     number_of_files = len(pak_index)
     return (number_of_files * 4) + sum(len(fname) + 1 for fname in pak_index) + 9
 
-def bind(fn: Callable[[F], T], fdata: F) -> Tuple[F, T]:
-    return fdata, fn(fdata)
-
-def write_index_entry(fname, offset):
+def write_index_entry(fname, offset) -> bytes:
     return write_uint32_le(offset) + fname.encode() + b'\00'
 
-def pak_files(data_files: Iterator[Tuple[str, bytes]]) -> Tuple[Iterator[bytes], Iterable[bytes]]:
+# def bind(fn: Callable[[F], T], fdata: F) -> Tuple[F, T]:
+#     return fdata, fn(fdata)
+
+# def pak_files(data_files: Iterator[Tuple[str, bytes]]) -> Tuple[Iterator[bytes], Iterable[bytes]]:
+#     pak_index, rdata = zip(*data_files)
+#     off = calculate_index_length(pak_index)
+#     fnames = tuple(pak_index) + ('\00\00\00\00',)
+#     rdata, lens = zip(*(bind(len, fdata) for fdata in rdata))
+#     offsets = (off + sum(lens[:idx]) for idx, _ in enumerate(fnames))
+#     index = (write_index_entry(fname, offset) for fname, offset in zip(fnames, offsets))
+#     return index, rdata
+
+def pak_files_gen(data_files: Iterator[Tuple[str, bytes]]) -> Iterator[Tuple[bytes, bytes]]:
+    end = ('\00\00\00\00', b'')
     pak_index, rdata = zip(*data_files)
     off = calculate_index_length(pak_index)
-    fnames = tuple(pak_index) + ('\00\00\00\00',)
-    rdata, lens = zip(*(bind(len, fdata) for fdata in rdata))
-    offsets = (off + sum(lens[:idx]) for idx, _ in enumerate(fnames))
-    index = (write_index_entry(fname, offset) for fname, offset in zip(fnames, offsets))
-    return index, rdata
+    for fname, fdata in chain(zip(pak_index, rdata), (end,)):
+        yield write_index_entry(fname, off), fdata
+        off += len(fdata)
 
 def read_file_fallback(pak: Iterable[Tuple[str, bytes]], pakname: str) -> Iterator[Tuple[str, bytes]]:
     for fname, data in pak:
@@ -58,7 +67,7 @@ if __name__ == "__main__":
     for filename in files:
         dirname = os.path.basename(filename)
         with pakfile.open(filename) as pak:
-            index, data = pak_files(read_file_fallback(pak, dirname))
-            with open('result.pak', 'wb') as output:
-                output.write(b''.join(index))
-                output.write(b''.join(data))
+            index, data = zip(*pak_files_gen(read_file_fallback(pak, dirname)))
+        with open('result.pak', 'wb') as output:
+            output.write(b''.join(index))
+            output.write(b''.join(data))

@@ -20,7 +20,7 @@ def resize_pil_image(w, h, bg, im):
     nbase.paste(im, box=(0, 0))
     return nbase
 
-def save_image_grid(filename, frames):
+def save_image_grid(filename, frames, palette):
     w = 24
     h = 24
 
@@ -38,6 +38,6 @@ def save_image_grid(filename, frames):
     for idx, frame in enumerate(stack):
         bim.paste(frame, box=((idx % grid_size) * w, int(idx / grid_size) * h))
 
-    bim.putpalette([(133 * x % 256) for x in range(256)]*3)
+    bim.putpalette(palette)
     bim.save(filename)
     # print(list(np.asarray(bim)))
