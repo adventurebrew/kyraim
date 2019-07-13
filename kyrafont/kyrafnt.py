@@ -18,6 +18,7 @@ print((fileSize, fontSig, descOffset))
 if (fontSig != 0x0500):
     raise ValueError("DOSFont: invalid font: 0x{:04X})".format(fontSig))
 
+
 width = data[descOffset + 5]
 height = data[descOffset + 4]
 numGlyphs = data[descOffset + 3] + 1
@@ -33,38 +34,41 @@ heights = [x for x in data[_heightTableStart:_heightTableStart + 2 * numGlyphs]]
 heights = list(zip(*[iter(heights)]*2))
 _colorMap = list(range(16)) # [x for x in data[unknow2:unknow2+16]]
 
+def flatten(ls): 
+    return (item for sublist in ls for item in sublist)
+
+def draw_line(bbs):
+    return list(flatten((_colorMap[b % 16], _colorMap[int(b / 16)]) for b in bbs))
+
 def convert_char(c):
-    src = data[bitmapOffsets[c]:]
     charWidth = widths[c]
     
     charH1, charH2 = heights[c]
     charH0 = height - (charH1 + charH2)
 
-    # print(bitmapOffsets[c])
+    off = bitmapOffsets[c]
 
     soff = 0
     pic = [[_colorMap[0]] * charWidth] * charH1
 
     pic.append([255] * charWidth)
 
-    for _ in range(charH2):
-        b = 0
-        pp = [0] * charWidth
-        for i in range(charWidth):
-            if (i % 2 == 0):
-                b = src[soff]
-                soff += 1
-                col = _colorMap[b % 16]
-            else:
-                col = _colorMap[int(b / 16)]
-            pp[i] = col
-        pic.append(pp)
+    read_size = (1 + charWidth) // 2
+    src = data[off:off + read_size * charH2]
+    chunked = zip(*([iter(src)] * read_size))
+    pic += [draw_line(chunk)[:charWidth] for chunk in chunked]
+
+    # for _ in range(charH2):
+    #     read_size = (1 + charWidth) // 2
+    #     bbs = src[soff:soff+read_size]
+    #     cols = [[_colorMap[b % 16], _colorMap[int(b / 16)]] for b in bbs]
+    #     pp = list(flatten(cols))[:charWidth]
+    #     soff += read_size
+    #     pic.append(pp)
 
     pic.append([255] * charWidth)
 
     pic += [[_colorMap[0]] * charWidth] * charH0
-    if(c == 97):
-        print([x for x in src[:soff]])
     return pic
 
 chars = (convert_char(c) for c in range(numGlyphs))
