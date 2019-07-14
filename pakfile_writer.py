@@ -35,7 +35,7 @@ def generate_index(data_files: PairIterator[str, bytes]) -> PairIterator[bytes, 
 
 def read_file_fallback(pak: PairIterable[str, bytes], pakname: str) -> PairIterator[str, bytes]:
     for fname, data in pak:
-        fpath = f'{pakname}/{fname}'
+        fpath = os.path.join(pakname, fname)
         if os.path.exists(fpath):
             logging.info(f'Adding {fpath}')
             with open(fpath, 'rb') as src:
