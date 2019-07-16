@@ -102,13 +102,14 @@ def open(*args: Any, **kwargs: Any) -> Iterator[PakFile]:
     yield PakFile(*args, **kwargs)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: pakfile.py PATH_TO_KYRANDIA")
-        exit(1)
+    import argparse
 
-    # TODO: use argparse
-    kyrapath = sys.argv[1:]
-    files = set(flatten(glob.iglob(r) for r in kyrapath))
+    parser = argparse.ArgumentParser(description='extract pak archive')
+    parser.add_argument('files', nargs='+', help='files to extract')
+    args = parser.parse_args()
+
+    files = set(flatten(glob.iglob(r) for r in args.files))
+    print(files)
     for filename in files:
         dirname = os.path.basename(filename)
         with PakFile(filename) as pak:
