@@ -3,12 +3,13 @@
 import builtins
 import io
 import sys
+import operator
 import os
 import glob
 
 from contextlib import contextmanager
 from collections import OrderedDict
-from itertools import takewhile
+from itertools import takewhile, chain
 from functools import partial
 
 from typing import Any, AnyStr, Callable, ContextManager, IO, Iterator, Iterable, List, Mapping, Sequence, Tuple, TypeVar, Union
@@ -28,7 +29,18 @@ def flatten(ls: Iterable[Iterable[T]]) -> Iterator[T]:
     return (item for sublist in ls for item in sublist)
 
 def readcstr(stream: IO[bytes]) -> str:
-    return ''.join(iter(lambda: stream.read(1).decode(), '\00'))
+    return b''.join(iter(partial(stream.read, 1), b'\00')).decode()
+
+def bound_readcstr(stream: IO[bytes]) -> str:
+    return b''.join(takewhile(partial(operator.ne, b'\00'), iter(partial(stream.read, 1), b''))).decode()
+
+def safe_readcstr(stream: IO[bytes], sentinel: bytes = b'\xab') -> str:
+    try:
+        bound_read = chain(iter(partial(stream.read, 1), b''), [sentinel])
+        res = b''.join(takewhile(partial(operator.ne, b'\00'), bound_read))
+        return res.decode()
+    except UnicodeDecodeError:
+        raise ValueError('reached EOF before null-termination')
 
 def create_directory(name: AnyStr) -> None:
     os.makedirs(name, exist_ok=True)
