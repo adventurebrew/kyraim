@@ -52,12 +52,13 @@ if __name__ == "__main__":
         exit(1)
 
     # TODO: use argparse
-    kyrapath = sys.argv[1:]
+    srcdir = sys.argv[1]
+    kyrapath = sys.argv[2:]
     files = set(pakfile.flatten(glob.iglob(r) for r in kyrapath))
     for filename in files:
         dirname = os.path.basename(filename)
         with pakfile.open(filename) as pak:
-            index, data = zip(*generate_index(read_file_fallback(pak, dirname)))
-        with open('result.pak', 'wb') as output:
+            index, data = zip(*generate_index(read_file_fallback(pak, srcdir)))
+        with open(os.path.join('out', dirname), 'wb') as output:
             output.write(b''.join(index))
             output.write(b''.join(data))
