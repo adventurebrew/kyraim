@@ -109,3 +109,9 @@ venv.bak/
 *.PAK
 *.VRM
 *.APK
+*.CPS
+*.DAT
+*.EMC
+*.BIN
+*.COL
+*.txt
