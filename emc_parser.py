@@ -17,7 +17,7 @@ def read_chunks(stream, **kwargs):
         chunk.skip()
 
 def before_offset(stream, off, *args) -> bool:
-    return stream.tell() < off
+    return stream.tell() <= off
 
 def readcstr(stream) -> str:
     return b''.join(iter(partial(stream.read, 1), b'\00')).decode()
@@ -43,7 +43,7 @@ def parse(fname):
                 for off in chain([start], offs):
                     # assert chunk.tell() == off, (chunk.tell(), off)
                     chunk.seek(off)
-                    print(fname + '\t' + readcstr(chunk))
+                    print(fname + '\t"' + readcstr(chunk) + '"')
 
 if __name__ == "__main__":
     import argparse
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     parser.add_argument('files', nargs='+', help='files to extract')
     args = parser.parse_args()
 
-    files = set(chain.from_iterable(glob.iglob(r) for r in args.files))
+    files = sorted(set(chain.from_iterable(glob.iglob(r) for r in args.files)))
     print(files)
     for filename in files:
         parse(filename)
