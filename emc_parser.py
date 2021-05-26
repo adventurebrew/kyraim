@@ -20,7 +20,7 @@ def before_offset(stream, off, *args) -> bool:
     return stream.tell() <= off
 
 def readcstr(stream) -> str:
-    return b''.join(iter(partial(stream.read, 1), b'\00')).decode()
+    return b''.join(iter(partial(stream.read, 1), b'\00')).decode('cp862')
 
 def parse(fname):
     print(fname)
@@ -40,10 +40,13 @@ def parse(fname):
                 start = read_uint16_be(chunk)
                 read_offsets = iter(partial(read_uint16_be, chunk), b'')
                 offs = list(takewhile(partial(before_offset, chunk, start), read_offsets))
+                chunk.seek(-2, 1)
+                assert chunk.tell() == start
+                assert offs == sorted(offs)
                 for off in chain([start], offs):
                     # assert chunk.tell() == off, (chunk.tell(), off)
                     chunk.seek(off)
-                    print(fname + '\t"' + readcstr(chunk) + '"')
+                    print(fname, f'"{readcstr(chunk)}"', sep='\t')
 
 if __name__ == "__main__":
     import argparse
