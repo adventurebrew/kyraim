@@ -122,7 +122,7 @@ if __name__ == "__main__":
                             if VERIFY:
                                 assert [start] + orig_offs == offs, ([start] + orig_offs, offs)
 
-                            chunk_data = b''.join(write_uint16_be(off) for off in offs) + text.encode('windows-1255') + b'\0'
+                            chunk_data = b''.join(write_uint16_be(off) for off in offs) + text.encode('cp862') + b'\0'
                             
                             data += wrap_chunk(b'TEXT', chunk_data)
 
