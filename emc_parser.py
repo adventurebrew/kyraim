@@ -20,7 +20,7 @@ def before_offset(stream, off, *args) -> bool:
     return stream.tell() <= off
 
 def readcstr(stream) -> str:
-    return b''.join(iter(partial(stream.read, 1), b'\00')).decode('cp862')
+    return b''.join(iter(partial(stream.read, 1), b'\00')).decode('cp862')  # .replace('\n', '\\n').replace('\r', '\\r')
 
 def parse(fname):
     print(fname)
