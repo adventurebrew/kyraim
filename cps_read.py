@@ -1,4 +1,5 @@
-from enum import Enum
+import numpy as np
+from PIL import Image
 
 
 def read_uint16_le(stream) -> int: 
@@ -7,8 +8,6 @@ def read_uint16_le(stream) -> int:
 def read_uint32_le(stream) -> int: 
     return int.from_bytes(stream.read(4), byteorder='little', signed=False)
 
-from PIL import Image
-import numpy as np
 
 skip = False
 
