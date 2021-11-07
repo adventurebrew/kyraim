@@ -20,11 +20,10 @@ def decompress_xor_buffer(buffer):
     src = bytes(buffer)
 
     output = bytearray()
-    print(src)
     with io.BytesIO(src) as stream:
         while True:
             code = stream.read(1)[0]
-            print('XOR CODE', code)
+            # print('XOR CODE', code)
             if code == 0:
                 ln = stream.read(1)[0]
                 output += stream.read(1) * ln
@@ -52,6 +51,95 @@ def decompress_xor_buffer(buffer):
         return bytes(output)
 
 
+XOR_SMALL = 127
+XOR_MED = 255
+XOR_LARGE = 16383
+XOR_MAX = 32767
+
+def compress_xor_buffer(
+    buffer,
+    # orig
+):
+    size = len(buffer)
+    pos = 0
+    out = bytearray()
+    while pos < size:
+        # print(pos, size)
+        # assert orig[:len(out)] == out, (list(orig[:len(out)][-20:]), list(out[-20:]))
+        fill_count = 0
+        xor_count = 0
+        skip_count = 0
+
+        last_xor = buffer[pos]
+        testsp = pos
+
+        while testsp < size and buffer[testsp] != 0:
+            if buffer[testsp] == last_xor:
+                fill_count += 1
+                xor_count += 1
+            else:
+                if fill_count > 3:
+                    break
+                else:
+                    last_xor = buffer[testsp]
+                    fill_count = 1
+                    xor_count += 1
+            testsp += 1
+
+        fill_count = fill_count if fill_count > 3 else 0
+        xor_count -= fill_count
+        while xor_count != 0:
+            if xor_count < XOR_MED:
+                print('xor_count.if')
+                count = min(xor_count, XOR_SMALL)
+                out += bytes([count])
+            else:
+                print('xor_count.else')
+                count = min(xor_count, XOR_LARGE)
+                out += bytes([0x80, count, (count >> 8) | 0x80])
+
+            while count != 0:
+                out += bytes([buffer[pos]])
+                pos += 1
+                count -= 1
+                xor_count -= 1
+
+        while fill_count != 0:
+            if fill_count <= XOR_MED:
+                print('fill_count.if')
+                count = fill_count
+                out += bytes([0, count])
+            else:
+                print('fill_count.else')
+                count = min(fill_count, XOR_LARGE)
+                out += bytes([0x80, count % 256, (count >> 8) | 0xC0])
+
+
+            out += bytes([buffer[pos]])
+            pos += count
+            fill_count -= count
+
+        while testsp < size and buffer[testsp] == 0:
+            skip_count += 1
+            testsp += 1
+
+        while skip_count != 0:
+            if skip_count < XOR_MED:
+                print('skip_count.if')
+                count = min(skip_count, XOR_SMALL)
+                out += bytes([count | 0x80])
+            else:
+                count = min(skip_count, XOR_MAX)
+                print('skip_count.else')
+                out += bytes([0x80, count % 256, count >> 8])
+
+            skip_count -= count
+            pos += count
+
+    out += bytes([0x80, 0, 0])
+    return bytes(out)
+
+
 if __name__ == '__main__':
 
     with open('orig_1/INTRO1.PAK/TOP.CPS', 'rb') as f:
@@ -59,6 +147,7 @@ if __name__ == '__main__':
         _palette = list((x << 2) | (x & 3) for x in f.read(0x300))
 
     with open('orig_1/INTRO1.PAK/KYRANDIA.WSA', 'rb') as f:
+    # with open('kyra2-cd-ext/INTROGEN.PAK/TITLE.WSA', 'rb') as f:
 
         # https://moddingwiki.shikadi.net/wiki/Westwood_WSA_Format
         # UINT16LE	NrOfFrames	Number of frames.
@@ -91,11 +180,23 @@ if __name__ == '__main__':
             assert f.tell() == off, (f.tell(), off)
             lcw_buffer = decode_lcw(f, lcw_buffer, lcw_buffer_size)
 
+            old_frame = np.array(frame, dtype=np.uint8)  # for verification
+
+            uncomp = decompress_xor_buffer(lcw_buffer)
+            comp = compress_xor_buffer(
+                uncomp,
+                # bytes(lcw_buffer)
+            )
+            assert decompress_xor_buffer(comp) == uncomp
+            # assert comp == bytes(lcw_buffer), (comp, bytes(lcw_buffer))
+
             decoded_xor = np.frombuffer(decompress_xor_buffer(lcw_buffer), dtype=np.uint8).reshape(height, width)
             frame ^= decoded_xor
+
+            assert np.array_equal(decoded_xor, frame ^ old_frame)
             im = Image.fromarray(frame.reshape(height, width), mode='P')
             im.putpalette(_palette)
-            print(_palette)
+            # print(_palette)
             im.save(f'frame_{idx:05d}.png')
 
         assert f.read() == b''
