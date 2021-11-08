@@ -169,15 +169,20 @@ if __name__ == '__main__':
         flags = read_uint16_le(f)
         offs = [read_uint32_le(f) for _ in range(num_frames + 1)]
         file_size = read_uint32_le(f)
-        # palette = f.read(3 * 256)
+        # _palette = list((x << 2) | (x & 3) for x in f.read(0x300))
 
-        print(num_frames, width, height, lcw_buffer_size)
+        print(num_frames, width, height, lcw_buffer_size, flags)
+        # print(xpos, ypos)
+        print(offs)
 
         frame = np.zeros((height, width), dtype=np.uint8)
         lcw_buffer = [0 for _ in range(lcw_buffer_size)]
 
         for idx, off in enumerate(offs):
             assert f.tell() == off, (f.tell(), off)
+            # assert f.tell() == off + len(_palette), (f.tell(), off + len(_palette))
+            lcw_buffer = [0 for _ in range(lcw_buffer_size)]
+
             lcw_buffer = decode_lcw(f, lcw_buffer, lcw_buffer_size)
 
             old_frame = np.array(frame, dtype=np.uint8)  # for verification

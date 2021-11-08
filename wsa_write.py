@@ -29,7 +29,7 @@ if __name__ == '__main__':
     print(len(encoded_xor))
     off = 126
     offs = [off]
-    encoded_lcw = encode_lcw(encoded_xor, None)[:-1]
+    encoded_lcw = encode_lcw(encoded_xor, None)
     output = bytearray(encoded_lcw)
     for f in files[1:]:
         off += len(encoded_lcw)
@@ -40,7 +40,7 @@ if __name__ == '__main__':
         assert lcw_buffer_size - len(encoded_xor) > 0
         encoded_xor += b'\0' * (lcw_buffer_size - len(encoded_xor))
         first_frame = frame
-        encoded_lcw = encode_lcw(encoded_xor, None)[:-1]
+        encoded_lcw = encode_lcw(encoded_xor, None)
         with io.BytesIO(encoded_lcw) as fd:
             dec = decode_lcw(fd, [0 for _ in range(lcw_buffer_size)], lcw_buffer_size)
             assert bytes(dec) == encoded_xor, (bytes(dec)[:50], encoded_xor[:50])
