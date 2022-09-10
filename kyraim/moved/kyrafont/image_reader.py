@@ -8,6 +8,7 @@ from itertools import takewhile
 PALETTE_SIZE = 256
 palette_struct = Struct('<{}B'.format(3 * PALETTE_SIZE))
 
+
 def read_image_grid(filename):
     w = 24
     h = 24
@@ -28,8 +29,10 @@ def read_image_grid(filename):
             area = (col * w, row * h, (col + 1) * w, (row + 1) * h)
             yield bim.crop(area)
 
+
 def count_in_row(pred, row):
     return sum(1 for _ in takewhile(pred, row))
+
 
 def resize_frame(im):
     BGS = [224, 192]
@@ -41,7 +44,9 @@ def resize_frame(im):
     # h1 = count_in_row(search_line, frame)
     # h2 = count_in_row(search_line, frame[h1 + 1:])
     # print(h1, h2)
-    charWidth = len(frame[0]) - min(count_in_row(char_is_bg, reversed(line)) for line in frame)
+    charWidth = len(frame[0]) - min(
+        count_in_row(char_is_bg, reversed(line)) for line in frame
+    )
     h3 = len(frame) - count_in_row(line_is_bg, reversed(frame))
 
     area = (0, 0, charWidth, h3)
@@ -54,16 +59,23 @@ def resize_frame(im):
 
     return charWidth, list(np.asarray(im.crop(area)))
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='read smush file')
     parser.add_argument('filename', help='filename to read from')
-    parser.add_argument('--codec', '-c', action='store', required=True, help='codec for encoding', choices=[21, 44])
+    parser.add_argument(
+        '--codec',
+        '-c',
+        action='store',
+        required=True,
+        help='codec for encoding',
+        choices=[21, 44],
+    )
     args = parser.parse_args()
 
     frames = read_image_grid(args.filename)
     frames = (resize_frame(frame) for frame in frames)
     for loc, frame in frames:
         print(loc)
-
