@@ -8,7 +8,7 @@ from functools import partial
 
 from typing import Any, IO, Iterable, Sequence, Tuple
 
-from kyraim.archive.base import ArchiveIndex, BaseArchive, make_opener
+from kyraim.archive.base import ArchiveIndex, SimpleArchive, SimpleEntry, make_opener
 from kyraim.codex.base import readcstr, read_uint32_le
 
 
@@ -31,13 +31,16 @@ def read_index_entries(stream: IO[bytes]) -> Tuple[Sequence[str], Sequence[int]]
     return names, (off,) + tuple(offs)
 
 
-def create_index_mapping(names: Iterable[str], offsets: Sequence[int]) -> ArchiveIndex:
+def create_index_mapping(
+    names: Iterable[str],
+    offsets: Sequence[int],
+) -> ArchiveIndex[SimpleEntry]:
     sizes = [(end - start) for start, end in zip(offsets, offsets[1:])]
     return dict(zip(names, zip(offsets, sizes)))
 
 
-class PakFile(BaseArchive):
-    def create_index(self) -> ArchiveIndex:
+class PakFile(SimpleArchive):
+    def _create_index(self) -> ArchiveIndex[SimpleEntry]:
         return create_index_mapping(*read_index_entries(self._stream))
 
 

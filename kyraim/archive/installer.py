@@ -4,11 +4,11 @@ import os
 from itertools import chain
 from typing import IO
 
-from kyraim.archive.base import ArchiveIndex, BaseArchive, make_opener
+from kyraim.archive.base import ArchiveIndex, SimpleArchive, SimpleEntry, make_opener
 from kyraim.codex.base import read_uint32_le
 
 
-def read_index_entries(stream: IO[bytes]) -> ArchiveIndex:
+def read_index_entries(stream: IO[bytes]) -> ArchiveIndex[SimpleEntry]:
     _unk = stream.read(3)
     size = read_uint32_le(stream)
     subs = stream.read(size).split(b'\r\n')[:-1]
@@ -23,8 +23,8 @@ def read_index_entries(stream: IO[bytes]) -> ArchiveIndex:
     return index
 
 
-class WestwoodInstaller(BaseArchive):
-    def create_index(self) -> ArchiveIndex:
+class WestwoodInstaller(SimpleArchive):
+    def _create_index(self) -> ArchiveIndex[SimpleEntry]:
         return read_index_entries(self._stream)
 
 

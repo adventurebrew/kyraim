@@ -9,8 +9,10 @@ from typing import (
     AnyStr,
     Callable,
     ContextManager,
+    Generic,
     Iterator,
     Mapping,
+    NamedTuple,
     Optional,
     Tuple,
     Type,
@@ -19,12 +21,21 @@ from typing import (
 )
 
 
-ArchiveIndex = Mapping[str, Tuple[int, int]]
 ArchiveType = TypeVar('ArchiveType', bound='BaseArchive')
+EntryType = TypeVar('EntryType')
+ArchiveIndex = Mapping[str, EntryType]
 
 
 def create_directory(name: AnyStr) -> None:
     os.makedirs(name, exist_ok=True)
+
+
+class _SimpleEntry(NamedTuple):
+    offset: int
+    size: int
+
+
+SimpleEntry = Union[_SimpleEntry, Tuple[int, int]]
 
 
 def read_file(stream: IO[bytes], offset: int, size: int) -> bytes:
@@ -34,13 +45,16 @@ def read_file(stream: IO[bytes], offset: int, size: int) -> bytes:
     return stream.read(size)
 
 
-class BaseArchive(AbstractContextManager):
+class BaseArchive(AbstractContextManager, Generic[EntryType]):
     _stream: IO[bytes]
 
-    index: Mapping[str, Tuple[int, int]]
+    index: Mapping[str, EntryType]
 
-    def create_index(self) -> ArchiveIndex:
+    def _create_index(self) -> ArchiveIndex[EntryType]:
         raise NotImplementedError('create_index')
+
+    def _read_entry(self, entry: EntryType) -> bytes:
+        raise NotImplementedError('read_entry')
 
     def __init__(self, file: Union[AnyStr, os.PathLike[AnyStr], IO[bytes]]) -> None:
         if isinstance(file, os.PathLike):
@@ -50,15 +64,14 @@ class BaseArchive(AbstractContextManager):
             self._stream = io.open(file, 'rb')
         else:
             self._stream = file
-        self.index = self.create_index()
+        self.index = self._create_index()
 
     @contextmanager
     def open(self, fname: str, mode: str = 'r') -> Iterator[IO]:
         if not fname in self.index:
             raise ValueError(f'no member {fname} found in archive')
 
-        start, size = self.index[fname]
-        data = read_file(self._stream, start, size)
+        data = self._read_entry(self.index[fname])
 
         stream: IO
         with io.BytesIO(data) as stream:
@@ -66,17 +79,20 @@ class BaseArchive(AbstractContextManager):
                 stream = io.TextIOWrapper(stream, encoding='utf-8')
             yield stream
 
+    def close(self) -> Optional[bool]:
+        return self._stream.close()
+
     def __exit__(
         self,
         exc_type: Optional[Type[BaseException]],
         exc_value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ) -> Optional[bool]:
-        return self._stream.close()
+        return self.close()
 
     def __iter__(self) -> Iterator[Tuple[str, bytes]]:
-        for fname, (start, size) in self.index.items():
-            yield fname, read_file(self._stream, start, size)
+        for fname, entry in self.index.items():
+            yield fname, self._read_entry(entry)
 
     def glob(self, pattern: str) -> Iterator[str]:
         return (fname for fname in self.index if pathlib.Path(fname).match(pattern))
@@ -86,6 +102,12 @@ class BaseArchive(AbstractContextManager):
         for fname, filedata in self:
             with io.open(os.path.join(dirname, fname), 'wb') as out_file:
                 out_file.write(filedata)
+
+
+class SimpleArchive(BaseArchive[SimpleEntry]):
+    def _read_entry(self, entry: SimpleEntry) -> bytes:
+        entry = _SimpleEntry(*entry)
+        return read_file(self._stream, entry.offset, entry.size)
 
 
 def make_opener(
