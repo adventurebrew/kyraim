@@ -4,6 +4,8 @@ import math
 import os
 import pathlib
 import struct
+from typing import NamedTuple
+
 from image import save_image_grid
 from kyraim.texts import match_archive_files
 
@@ -48,40 +50,51 @@ def convert_char(height, chardata, cheights, cwidth):
     return pic
 
 
-def decode_font_file(filename, data):
+class FontHeader(NamedTuple):
+    file_size: int
+    sig: int
+    header_size: int
+    bitmap_offset: int
+    width_table_start: int
+    bitmap_start: int
+    height_table_start: int
+
+
+def decode_font_file(filename, stream):
     path = pathlib.Path(filename)
     stem = path.stem
 
-    fileSize, fontSig, descOffset = struct.unpack('<3H', data[0:6])
+    header = FontHeader(*struct.unpack('<7H', stream.read(14)))
 
-    print((fileSize, fontSig, descOffset))
-    if fontSig != 0x0500:
-        print("DOSFont: invalid font {}: 0x{:04X}".format(filename, fontSig))
+    print((header.file_size, header.sig, header.header_size))
+    if header.sig != 0x0500:
+        print("DOSFont: invalid font {}: 0x{:04X}".format(filename, header.sig))
         return
-
-    assert len(data) == fileSize
-    assert descOffset == 14, descOffset
-    bitmapOffsetsStart, _widthTableStart, unknown2, _heightTableStart = struct.unpack(
-        '<4H', data[6:14]
-    )
-    print(data[descOffset:descOffset+2])
-    numGlyphs = data[descOffset + 3] + 1
-    height = data[descOffset + 4]
-    width = data[descOffset + 5]
+    assert stream.tell() == header.header_size == 14, (stream.tell(), header.header_size)
+    _magic = stream.read(3)
+    numGlyphs = ord(stream.read(1)) + 1
+    height = ord(stream.read(1))
+    width = ord(stream.read(1))
 
     print((width, height, numGlyphs))
 
-    print((bitmapOffsetsStart, _widthTableStart, unknown2, _heightTableStart))
-    bitmapOffsets = [
-        read_le_uint16(bytes(t))
-        for t in grouper(sublist(data, bitmapOffsetsStart, 2 * numGlyphs), 2)
-    ]
-    widths = sublist(data, _widthTableStart, numGlyphs)
-    heights = list(grouper(sublist(data, _heightTableStart, 2 * numGlyphs), 2))
+    print((header.bitmap_offset, header.width_table_start, header.bitmap_start, header.height_table_start))
 
-    assert len(bitmapOffsets) == len(widths) == len(heights) == numGlyphs, (len(bitmapOffsets), len(widths), len(heights), numGlyphs)
+    assert stream.tell() == header.bitmap_offset, (stream.tell(), header.bitmap_offset)
+    bitmapOffsets = [read_le_uint16(stream.read(2)) for _ in range(numGlyphs)]
 
-    chars = (convert_char(height, data[offset:], cheights, cwidth) for offset, cheights, cwidth in zip(bitmapOffsets, heights, widths))
+    assert stream.tell() == header.width_table_start, (stream.tell(), header.width_table_start)
+    widths = list(stream.read(numGlyphs))
+
+    assert stream.tell() == header.bitmap_start, (stream.tell(), header.bitmap_start)
+    bitmap_data = stream.read(header.height_table_start - header.bitmap_start)
+
+    assert stream.tell() == header.height_table_start, (stream.tell(), header.height_table_start)
+    heights = [tuple(stream.read(2)) for _ in range(numGlyphs)]
+
+    chars = (convert_char(height, bitmap_data[offset - header.bitmap_start:], cheights, cwidth) for offset, cheights, cwidth in zip(bitmapOffsets, heights, widths))
+
+    assert stream.tell() == header.file_size
 
     save_image_grid(f'{stem}.png', chars, palette)
 
@@ -99,6 +112,4 @@ if __name__ == '__main__':
         bname = os.path.basename(fname)
         print(fname)
         with pak.open(fname, 'rb') as stream:
-            data = stream.read()
-
-        decode_font_file(fname, data)
+            decode_font_file(fname, stream)
