@@ -1,3 +1,4 @@
+import binascii
 import csv
 import glob
 
@@ -9,13 +10,15 @@ from typing import IO, Iterable, Iterator, Sequence, Tuple
 from kyraim.codex.base import read_uint16_le, readcstr, write_uint16_le
 
 
-def parse(stream: IO[bytes]) -> Iterator[Tuple[int, bytes]]:
+def parse(stream: IO[bytes]) -> Iterator[Tuple[int, bytes, bytes]]:
     table_entries = read_uint16_le(stream)
     index_table = [read_uint16_le(stream) for _ in range(table_entries)]
     offsets = [read_uint16_le(stream) for _ in range(table_entries)]
     for idx, off in zip(index_table, offsets):
+        meta = stream.read(off - stream.tell())
         assert stream.tell() == off, (stream.tell(), off)
-        yield idx, readcstr(stream)
+        line = readcstr(stream)
+        yield idx, line, meta
 
 
 def compose(
@@ -26,16 +29,19 @@ def compose(
     grouped = groupby(lines, key=operator.itemgetter(0))
     for tfname, group in grouped:
         basename = os.path.basename(tfname)
-        _, idcs, outs = zip(*group)
+        _, idcs, hmetas, outs = zip(*group)
         texts = [
-            out.replace('"', '').replace('`', '"').encode(encoding) + b'\0'
+            out.replace('`', '"').encode(encoding) + b'\0'
             for out in outs
         ]
         num_entries = len(texts)
         first_off = 2 + (num_entries) * 4
 
+        metas = [binascii.unhexlify(meta) for meta in hmetas]
+
         offs = bytearray()
-        for entry in texts:
+        for meta, entry in zip(metas, texts):
+            first_off += len(meta)
             offs += write_uint16_le(first_off)
             first_off += len(entry)
 
@@ -45,7 +51,7 @@ def compose(
                 write_uint16_le(num_entries)
                 + b''.join(write_uint16_le(int(idx)) for idx in idcs)
                 + bytes(offs)
-                + b''.join(texts)
+                + b''.join(meta + text for meta, text in zip(metas, texts))
             )
 
 
@@ -54,10 +60,10 @@ def write_parsed(
     instream: IO[bytes],
     outstream: IO[str],
 ) -> None:
-    for (idx, line) in parse(instream):
+    for idx, line, meta in parse(instream):
         text = line.decode('cp862').replace('"', '""')
         assert '\n' not in text
-        print(os.path.basename(filename), idx, f'"{text}"', sep='\t', file=outstream)
+        print(os.path.basename(filename), idx, meta.hex(), f'"{text}"', sep='\t', file=outstream)
 
 
 if __name__ == '__main__':
