@@ -147,6 +147,9 @@ if __name__ == '__main__':
     palettes = {}
     patterns = GAMES[args.game]
 
+    graphics_dir = Path('graphics')
+    os.makedirs(graphics_dir, exist_ok=True)
+
     for pak, pattern, fname in match_archive_files(
         args.directory, patterns['palettes']
     ):
@@ -177,10 +180,10 @@ if __name__ == '__main__':
             )
             if npal:
                 bim.putpalette(npal or palettes[patterns['patterns'][pattern]])
-                bim.save(f'{bname}.png')
+                bim.save(graphics_dir / f'{bname}.png')
             else:
                 for palpat in patterns['patterns'][pattern]:
                     for palname in palettes:
                         if Path(palname).match(palpat):
                             bim.putpalette(npal or palettes[palname])
-                            bim.save(f'{bname}.{palname}.png')
+                            bim.save(graphics_dir / f'{bname}.{palname}.png')

@@ -1,14 +1,15 @@
-import glob
 import os
 from pathlib import Path
+from typing import Mapping
 
 import numpy as np
 from PIL import Image
-
 from kyraim.codex.base import read_uint16_le, read_uint32_le
 from kyraim.codex.lcw import decode_lcw
 from kyraim.codex.xor_delta import compress_xor_buffer, decompress_xor_buffer
-from kyraim.cps import decode_cps, read_palette
+
+from kyraim.texts import match_archive_files
+from kyraim.cps import GameCPSDef, decode_cps, read_palette
 
 
 WSA_FLAGS = {
@@ -37,8 +38,8 @@ def decode_wsa_sequence(stream, palette, version='kyra'):
     num_frames = read_uint16_le(stream)
 
     if version == 'kyra2':
-        xpos = read_uint16_le(stream)
-        ypos = read_uint16_le(stream)
+        _xpos = read_uint16_le(stream)
+        _ypos = read_uint16_le(stream)
 
     width = read_uint16_le(stream)
     height = read_uint16_le(stream)
@@ -87,39 +88,85 @@ def decode_wsa_sequence(stream, palette, version='kyra'):
 
         assert np.array_equal(decoded_xor, frame ^ old_frame)
         im = Image.fromarray(frame.reshape(height, width), mode='P')
-        im.putpalette(palette)
-        yield im
+        if palette:
+            im.putpalette(palette)
+        yield im, has_palette
 
     assert stream.read() == b''
     if file_size != 0:
         assert stream.tell() == file_size, (stream.tell(), file_size)
 
 
+GAMES: Mapping[str, GameCPSDef] = {
+    'kyra': {
+        'palettes': [
+            'TOP.CPS',
+        ],
+        'patterns': {
+            'KYRANDIA.WSA': ['TOP.CPS'],
+        },
+    },
+    'kyra2': {
+        'palettes': [
+            # 'PALETTE.COL',
+        ],
+        'patterns': {
+            'TITLE.WSA': [],
+        },
+    },
+}
+
+
 if __name__ == '__main__':
 
-    with open('../kyraim/orig_1/INTRO1.PAK/TOP.CPS', 'rb') as f:
-        _, palette = decode_cps(f, None, decode=False)
+    import argparse
+
+    parser = argparse.ArgumentParser(description='extract pak archive')
+    parser.add_argument('directory', help='files to extract')
+    parser.add_argument(
+        '--game',
+        '-g',
+        choices=GAMES,
+        required=True,
+        help='Use specific game pattern',
+    )
+
+    args = parser.parse_args()
+
+    palettes = {}
+    patterns = GAMES[args.game]
 
     frames_dir = Path('frames')
 
-    wsas = sorted(set(glob.iglob('../kyraim/orig_1/*.PAK/KYRANDIA.WSA')))
-    for fname in wsas:
+    for pak, pattern, fname in match_archive_files(
+        args.directory, patterns['palettes']
+    ):
         bname = os.path.basename(fname)
-        os.makedirs(frames_dir / bname, exist_ok=True)
-        with open(fname, 'rb') as fstream:
-            print(fname)
-            for idx, im in enumerate(
-                decode_wsa_sequence(fstream, palette, version='kyra')
-            ):
-                im.save(frames_dir / bname / f'frame_{idx:05d}.png')
+        with pak.open(fname, 'rb') as stream:
+            palette = None
+            if Path(bname).match('*.CPS'):
+                _, palette = decode_cps(stream, None, decode=False)
+            elif Path(bname).match('*.COL'):
+                palette = read_palette(stream)
+            if palette:
+                palettes[bname] = palette
+        print(bname)
 
-    wsas = sorted(set(glob.iglob('../kyraim/kyra2-cd-ext/*.PAK/TITLE.WSA')))
-    for fname in wsas:
+    for pak, pattern, fname in match_archive_files(
+        args.directory, patterns['patterns']
+    ):
         bname = os.path.basename(fname)
         os.makedirs(frames_dir / bname, exist_ok=True)
-        with open(fname, 'rb') as fstream:
-            print(fname)
-            for idx, im in enumerate(
-                decode_wsa_sequence(fstream, palette, version='kyra2')
+        print(fname, pattern)
+        with pak.open(fname, 'rb') as fstream:
+            for idx, (im, has_palette) in enumerate(
+                decode_wsa_sequence(fstream, b'', version=args.game)
             ):
-                im.save(frames_dir / bname / f'frame_{idx:05d}.png')
+                if has_palette:
+                    im.save(frames_dir / bname / f'frame_{idx:05d}.png')
+                else:
+                    for palpat in patterns['patterns'][pattern]:
+                        for palname in palettes:
+                            if Path(palname).match(palpat):
+                                im.putpalette(palettes[palname])
+                                im.save(frames_dir / bname / f'frame_{idx:05d}.{palname}.png')
