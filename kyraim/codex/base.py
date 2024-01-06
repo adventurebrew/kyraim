@@ -37,6 +37,10 @@ def collect(
     return decorator
 
 
+def read_int8(stream: SupportsRead[bytes]) -> int:
+    return int.from_bytes(stream.read(1), byteorder='big', signed=True)
+
+
 def read_uint16_le(stream: SupportsRead[bytes]) -> int:
     return int.from_bytes(stream.read(2), byteorder='little', signed=False)
 

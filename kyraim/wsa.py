@@ -23,7 +23,6 @@ WSA_FLAGS = {
 
 
 def decode_wsa_sequence(stream, palette, version='kyra'):
-
     # https://moddingwiki.shikadi.net/wiki/Westwood_WSA_Format
     # UINT16LE	NrOfFrames	Number of frames.
     # UINT16LE	XPos	X-offset of the frame data. This field does not appear in the Dune II versions of the format.
@@ -83,7 +82,10 @@ def decode_wsa_sequence(stream, palette, version='kyra'):
 
         decoded_xor = np.frombuffer(
             decompress_xor_buffer(lcw_buffer), dtype=np.uint8
-        ).reshape(height, width)
+        )
+        _rest = decoded_xor[height * width:]
+        # assert len(rest) == 0 or np.all(rest == 0), rest
+        decoded_xor = decoded_xor[:height * width].reshape(height, width)
         frame ^= decoded_xor
 
         assert np.array_equal(decoded_xor, frame ^ old_frame)
@@ -101,9 +103,123 @@ GAMES: Mapping[str, GameCPSDef] = {
     'kyra': {
         'palettes': [
             'TOP.CPS',
+            'ORIGPAL.COL',
+            'TREE_EXP.COL',
         ],
         'patterns': {
             'KYRANDIA.WSA': ['TOP.CPS'],
+            'AMULET.WSA': ['TREE_EXP.COL'],
+            'RAISEPIC.WSA': ['ORIGPAL.COL'],
+            'RINGBELL.WSA': ['ORIGPAL.COL'],
+            'BONK.WSA': ['TREE_EXP.COL'],
+            'NEEDSAW1.WSA': ['ORIGPAL.COL'],
+            'AGILE.WSA': ['ORIGPAL.COL'],
+            'ADVICE.WSA': ['ORIGPAL.COL'],
+            'BALANCE2.WSA': ['ORIGPAL.COL'],
+            'RIDGE.WSA': ['ORIGPAL.COL'],
+            'RIDGE2.WSA': ['ORIGPAL.COL'],
+            'EYES.WSA': ['ORIGPAL.COL'],  #
+            'ACIDGATE.WSA': ['ORIGPAL.COL'],
+            'GATE.WSA': ['ORIGPAL.COL'],
+            'PLANT.WSA': ['ORIGPAL.COL'],
+            'PLANT2.WSA': ['ORIGPAL.COL'],
+            'SLIDE1.WSA': ['ORIGPAL.COL'],
+            'SLIDE2.WSA': ['ORIGPAL.COL'],
+            'UPSTAIRS.WSA': ['ORIGPAL.COL'],
+            'DNSTAIRS.WSA': ['ORIGPAL.COL'],
+            'TOSS.WSA': ['ORIGPAL.COL'],
+            'MALENTER.WSA': ['ORIGPAL.COL'],
+            'SHUFFLE2.WSA': ['ORIGPAL.COL'],
+            'JUGGLE.WSA': ['ORIGPAL.COL'],
+            'JUGLTALK.WSA': ['ORIGPAL.COL'],
+            'BEHIND.WSA': ['ORIGPAL.COL'],
+            'JESTTALK.WSA': ['ORIGPAL.COL'],
+            'BRANTALK.WSA': ['ORIGPAL.COL'],
+            'DODGE.WSA': ['ORIGPAL.COL'],
+            'SEALED.WSA': ['ORIGPAL.COL'],
+            'SHATTER.WSA': ['ORIGPAL.COL'],
+            'FROZEN.WSA': ['ORIGPAL.COL'],
+            'FROG.WSA': ['ORIGPAL.COL'],
+            'FINALA.WSA': ['ORIGPAL.COL'],
+            'FINALB.WSA': ['ORIGPAL.COL'],
+            'FINALC.WSA': ['ORIGPAL.COL'],
+            'FINALD.WSA': ['ORIGPAL.COL'],
+            'REUNION.WSA': ['ORIGPAL.COL'],
+            'CHALICE1.WSA': ['ORIGPAL.COL'],
+            'CHALICE2.WSA': ['ORIGPAL.COL'],
+            'STEAL1.WSA': ['ORIGPAL.COL'],
+            'TAG-0.WSA': ['ORIGPAL.COL'],
+            'TAG.WSA': ['ORIGPAL.COL'],
+            'FOUNTAN1.WSA': ['TEMP.COL'],
+            'FOUNTAN2.WSA': ['TEMP.COL'],
+            'FNTTALK.WSA': ['TEMP.COL'],
+            'FOYER.WSA': ['ORIGPAL.COL'],
+            'PUNCH1.WSA': ['ORIGPAL.COL'],
+            'PUNCH2.WSA': ['ORIGPAL.COL'],
+            'PUNCH3.WSA': ['ORIGPAL.COL'],
+            'CAVEDOOR.WSA': ['ORIGPAL.COL'],
+            'ROCKS1.WSA': ['ORIGPAL.COL'],
+            'ROCKS2.WSA': ['ORIGPAL.COL'],
+            'ROCKS3.WSA': ['ORIGPAL.COL'],
+            'ROCKS4.WSA': ['ORIGPAL.COL'],
+            'ROCKS5.WSA': ['ORIGPAL.COL'],
+            'LIFTDWN.WSA': ['ORIGPAL.COL'],
+            'LIFTUP.WSA': ['ORIGPAL.COL'],
+            'GRANDPA.WSA': ['ORIGPAL.COL'],
+            'BRANTREE.WSA': ['ORIGPAL.COL'],
+            'FACE.WSA': ['ORIGPAL.COL'],
+            'FACE2.WSA': ['ORIGPAL.COL'],
+            'TOUCH.WSA': ['ORIGPAL.COL'],
+            'HERSAW1.WSA': ['ORIGPAL.COL'],
+            'HERSAW2.WSA': ['ORIGPAL.COL'],
+            'HERSAW3.WSA': ['ORIGPAL.COL'],
+            'LEP_OUT.WSA': ['ORIGPAL.COL'],
+            'LEP_IN.WSA': ['ORIGPAL.COL'],
+            'MOTHER1.WSA': ['ORIGPAL.COL'],
+            'MOTHER2.WSA': ['ORIGPAL.COL'],
+            'BRNENTR.WSA': ['ORIGPAL.COL'],
+            'BRYNN1.WSA': ['ORIGPAL.COL'],
+            'BRYNN2.WSA': ['ORIGPAL.COL'],
+            'BRYNN3.WSA': ['ORIGPAL.COL'],
+            'WESTWOOD.WSA': ['WESTWOOD.COL'],
+            'SHORE.WSA': ['ORIGPAL.COL'],
+            'TREE1.WSA': ['ORIGPAL.COL'],
+            'TREE2.WSA': ['ORIGPAL.COL'],
+            'KALLAK.WSA': ['KALLAK.COL'],
+            'MAL-KAL.WSA': ['MAL-KAL.COL'],
+            'PEGASUS.WSA': ['ORIGPAL.COL'],
+            'WILOFISH.WSA': ['ORIGPAL.COL'],
+            'LANDING.WSA': ['ORIGPAL.COL'],
+            'BRANBRN.WSA': ['ORIGPAL.COL'],
+            'JUMP.WSA': ['ORIGPAL.COL'],
+            'LEPCLIMB.WSA': ['ORIGPAL.COL'],
+            'LEPHOLE.WSA': ['ORIGPAL.COL'],
+            'FIREPLACE.WSA': ['ORIGPAL.COL'],
+            'MIXROX.WSA': ['ORIGPAL.COL'],  #
+            'MOONCAV1.WSA': ['ORIGPAL.COL'],
+            'MOONCAV2.WSA': ['ORIGPAL.COL'],
+            'ZANBASIC.WSA': ['ORIGPAL.COL'],
+            'BRANZAN.WSA': ['ORIGPAL.COL'],
+            'ZANDOORU.WSA': ['ORIGPAL.COL'],
+            'ZANDOORD.WSA': ['ORIGPAL.COL'],
+            'WAKEN.WSA': ['ORIGPAL.COL'],
+            'LAUNDRY.WSA': ['ORIGPAL.COL'],
+            'POUR.WSA': ['ORIGPAL.COL'],
+            'CARPET.WSA': ['ORIGPAL.COL'],
+            'SNGSPELL.WSA': ['ORIGPAL.COL'],
+            'SONG1.WSA': ['ORIGPAL.COL'],
+            'RAINDROP.WSA': ['ORIGPAL.COL'],
+            'BRANDYW1.WSA': ['ORIGPAL.COL'],
+            'BRANDYW2.WSA': ['ORIGPAL.COL'],
+            'BRANDYW3.WSA': ['ORIGPAL.COL'],
+            'SPELL.WSA': ['ORIGPAL.COL'],
+            'CTRAP1.WSA': ['ORIGPAL.COL'],
+            'CTRAP2.WSA': ['ORIGPAL.COL'],
+            'ALTER.WSA': ['ORIGPAL.COL'],
+            'DROPDOWN.WSA': ['ORIGPAL.COL'],
+            'DROPUP.WSA': ['ORIGPAL.COL'],
+            'WOW.WSA': ['ORIGPAL.COL'],
+            'SAW.WSA': ['ORIGPAL.COL'],
         },
     },
     'kyra2': {
@@ -118,7 +234,6 @@ GAMES: Mapping[str, GameCPSDef] = {
 
 
 if __name__ == '__main__':
-
     import argparse
 
     parser = argparse.ArgumentParser(description='extract pak archive')
@@ -169,4 +284,8 @@ if __name__ == '__main__':
                         for palname in palettes:
                             if Path(palname).match(palpat):
                                 im.putpalette(palettes[palname])
-                                im.save(frames_dir / bname / f'frame_{idx:05d}.{palname}.png')
+                                im.save(
+                                    frames_dir
+                                    / bname
+                                    / f'frame_{idx:05d}.{palname}.png'
+                                )
